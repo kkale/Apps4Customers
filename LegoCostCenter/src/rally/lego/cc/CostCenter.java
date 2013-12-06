@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Logger;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -27,13 +28,15 @@ public class CostCenter {
 	public CostCenter() {
 
 	}
-
+	private Logger logger = Logger.getLogger("Rally.Leg.CC.CostCenter.log");
+	
 	/**
 	 * 
 	 * @param args
 	 */
 	public static void main(String[] args) {
 
+		
 		Map<String, String> argsMap = new HashMap<String, String>();
 
 		if (args == null || args.length < 6) {
@@ -52,8 +55,6 @@ public class CostCenter {
 		String subAdminUsername = argsMap.get("-u");
 		String csvFile = argsMap.get("-f");
 
-		System.out.println("args: " + argsMap);
-
 		CostCenter cs = new CostCenter();
 		try {
 			cs.api = new RallyRestApi(new URI("https://rally1.rallydev.com"),
@@ -61,17 +62,15 @@ public class CostCenter {
 			Set<User> refs2Update = cs.filterCSVRecords(csvFile);
 			cs.updateCostCenters(refs2Update);
 		} catch (FileNotFoundException e) {
-			System.out.printf(
+			cs.logger.warning(String.format(
 					"Error: File %s could not be found at the given location",
-					csvFile);
+					csvFile));
 			e.printStackTrace();
 		} catch (URISyntaxException e) {
-			System.out
-					.printf("Error: Could not connect to https://rally1.rallydev.com. Please check your internet connection");
+			cs.logger.warning("Error: Could not connect to https://rally1.rallydev.com. Please check your internet connection");
 		} catch (IOException e) {
-			System.out
-					.printf("Error: File %s could not be read. Please check your permissions",
-							csvFile);
+			cs.logger.warning(String.format("Error: File %s could not be read. Please check your permissions",
+							csvFile));
 		}
 
 	}
@@ -93,7 +92,7 @@ public class CostCenter {
 		Map<String, String> csvUser2CostCenter = getRecordsFromCSV(csvFile);
 
 		// read cost centers from Rally
-		System.out.println("Starting extracting data from Rally...");
+		logger.info("Starting extracting data from Rally...");
 		QueryRequest request = new QueryRequest("user");
 		request.setFetch(new Fetch("UserName", "_ref", "CostCenter"));
 
@@ -111,6 +110,8 @@ public class CostCenter {
 				costCenter = juser.get("CostCenter").getAsString();
 				ref = juser.get("_ref").getAsString();
 				csvCostCenter = csvUser2CostCenter.get(username);
+				// only update if the cost center in the csv is different from the
+				// cost center in Rally
 				if (csvCostCenter != null && !csvCostCenter.equals(costCenter)) {
 					users2Update.add(new User(username, csvCostCenter, ref));
 				}
@@ -134,7 +135,7 @@ public class CostCenter {
 		String costCenter = null;
 
 		// read cost centers from the CSV
-		System.out.println("Starting reading the data from CSV...");
+		logger.info("Starting reading the data from CSV...");
 		while ((record = reader.readLine()) != null) {
 			recordTK = record.split(",");
 			username = recordTK[0];
@@ -146,7 +147,7 @@ public class CostCenter {
 
 			csvUser2CostCenterMap.put(username, costCenter);
 		}
-		System.out.println("Finished reading the data from CSV...");
+		logger.info("Finished reading the data from CSV...");
 		return csvUser2CostCenterMap;
 	}
 
@@ -156,15 +157,14 @@ public class CostCenter {
 	 * @param users2Update
 	 * @throws IOException
 	 */
-	private void updateCostCenters(Set<User> users2Update)
-			throws IOException {
+	private void updateCostCenters(Set<User> users2Update) throws IOException {
 		if (users2Update == null || users2Update.isEmpty()) {
 			System.out
 					.println("All users have correct costcenters. No need to change...");
 			return;
 		}
-		System.out.println("Update Records: " + users2Update);
-		System.out.println("Starting updating users in Rally...");
+		logger.info("Update Records: " + users2Update);
+		logger.info("Starting updating users in Rally...");
 		String costCenter = null;
 		for (User user : users2Update) {
 			JsonObject updateUser = new JsonObject();
@@ -173,13 +173,15 @@ public class CostCenter {
 				costCenter = "None";
 			}
 			updateUser.addProperty("CostCenter", costCenter);
-			UpdateRequest updateRequest = new UpdateRequest(user.getRef(), updateUser);
+			UpdateRequest updateRequest = new UpdateRequest(user.getRef(),
+					updateUser);
 			UpdateResponse updateResponse = api.update(updateRequest);
 			updateUser = updateResponse.getObject();
-			 System.out.println(String.format("Updated User %s New Cost Center = %s",
-			 user.getUserName(), user.getCostCenter()));
+			logger.info(String.format(
+					"Updated User %s New Cost Center = %s", user.getUserName(),
+					user.getCostCenter()));
 		}
-		System.out.println("Done updating users in Rally...");
+		logger.info("Done updating users in Rally...");
 	}
 
 	/**
