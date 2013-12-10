@@ -189,7 +189,7 @@ public class CostCenter {
 	 */
 	private static void printUsage() {
 		System.out
-				.println("Usage: java rally.lego.cc.CostCenter -u <Rally Sub admin username> -p <Rally Sub admin password> -f <csv file>");
+				.println("Usage: java -jar LegoCostCenter.jar -u <Rally Sub admin username> -p <Rally Sub admin password> -f <csv file>");
 
 	}
 
